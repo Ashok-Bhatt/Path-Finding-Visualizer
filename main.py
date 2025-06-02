@@ -1,17 +1,23 @@
 from tkinter import *
 from utils import *
+import time
+from queue import Queue
+import heapq
+from point import Point
 
 grid_rows = 30
 grid_columns = 30
 cell_size = 20
-current_source = (0, 0)
-current_destination = (grid_rows-1, grid_columns-1)
+current_source = [0, 0]
+current_destination = [grid_rows-1, grid_columns-1]
 
 heading_text = "Path Finding Visualizer"
 grid = [[0]*grid_columns for i in range(grid_rows)]
+visited = [[0]*grid_columns for i in range(grid_rows)]
 
 grid[current_source[0]][current_source[1]] = 2
 grid[current_destination[0]][current_destination[1]] = 3
+visited[current_source[0]][current_source[1]] = 1
 
 
 def draw(event, grid_view, point_options):
@@ -38,13 +44,13 @@ def draw(event, grid_view, point_options):
             grid_view.create_rectangle(current_source[0]*cell_size, current_source[1]*cell_size, current_source[0]*cell_size+cell_size, current_source[1]*cell_size+cell_size, fill="white", outline="black")
             grid[i][j] = 2
             grid_view.create_rectangle(x1, y1, x2, y2, fill="green", outline="black")
-            current_source = (i, j)
+            current_source = [i, j]
         elif (current_option == "Destination" and grid[i][j] != 2):
             grid[current_destination[0]][current_destination[1]] = 0
             grid_view.create_rectangle(current_destination[0]*cell_size, current_destination[1]*cell_size, current_destination[0]*cell_size+cell_size, current_destination[1]*cell_size+cell_size, fill="white", outline="black")
             grid[i][j] = 3
             grid_view.create_rectangle(x1, y1, x2, y2, fill="blue", outline="black")
-            current_destination = (i, j)
+            current_destination = [i, j]
  
 
 def create_grid(grid_view):
@@ -56,6 +62,158 @@ def create_grid(grid_view):
             y2 = y1+cell_size
             color = getCellColor(grid, i, j)
             grid_view.create_rectangle(x1, y1, x2, y2, fill=color, outline="black")
+
+
+def dfs_search(grid_view, current):
+
+    if current == current_destination:
+        return True
+    
+    if current != current_source:
+        grid_view.create_rectangle(current[0]*cell_size, current[1]*cell_size, current[0]*cell_size+cell_size, current[1]*cell_size+cell_size, fill="orange", outline="black")
+        grid_view.update_idletasks()
+    
+    neighbors = [[current[0]-1,current[1]], [current[0],current[1]+1], [current[0]+1,current[1]], [current[0],current[1]-1]]
+    for neighbor in neighbors:
+        x, y = neighbor
+        if x>=0 and y>=0 and x<grid_rows and y<grid_columns and grid[x][y]!=1 and not(visited[x][y]):
+            visited[x][y] = 1
+            time.sleep(0.1)
+            result = dfs_search(grid_view, neighbor)
+            if result:
+                if current != current_source:
+                    grid_view.create_rectangle(current[0]*cell_size, current[1]*cell_size, current[0]*cell_size+cell_size, current[1]*cell_size+cell_size, fill="yellow", outline="black")
+                    grid_view.update_idletasks()
+                return True
+    
+    return False
+
+
+def bfs_search(grid_view, current):
+    
+    parent_to_children = {}
+    q = Queue()
+    q.put(current_source)
+
+    while (not(q.empty())):
+
+        current = q.get()
+        if (current == current_destination):
+            break
+
+        if (current != current_source):
+            grid_view.create_rectangle(current[0]*cell_size, current[1]*cell_size, current[0]*cell_size+cell_size, current[1]*cell_size+cell_size, fill="orange", outline="black")
+            grid_view.update_idletasks()
+
+        neighbors = [[current[0]-1,current[1]], [current[0],current[1]+1], [current[0]+1,current[1]], [current[0],current[1]-1]]
+        for neighbor in neighbors:
+            x, y = neighbor
+            if x>=0 and y>=0 and x<grid_rows and y<grid_columns and grid[x][y]!=1 and not(visited[x][y]):
+                q.put(neighbor)
+                parent_to_children[neighbor[0]*grid_columns+neighbor[1]] = current[0]*grid_columns+current[1]
+                visited[x][y] = 1
+                time.sleep(0.05)
+        
+        path_point = current_destination[0]*grid_columns + current_destination[1]
+        while (parent_to_children.get(path_point)):
+            parent = parent_to_children[path_point]
+            if parent != current_source[0]*grid_columns + current_source[1]:
+                grid_view.create_rectangle((parent//grid_columns)*cell_size, (parent%grid_columns)*cell_size, (parent//grid_columns)*cell_size+cell_size, (parent%grid_columns)*cell_size+cell_size, fill="yellow", outline="black")
+                grid_view.update_idletasks()
+            path_point = parent
+
+
+def a_star_search(grid_view, current):
+    
+    parent_to_children = {}
+    q = []
+    heapq.heappush(q, Point(current_source[0], current_source[1], 0, getDistance(current_source, current_destination)))
+
+    while (len(q)):
+
+        current = heapq.heappop(q)
+        if ([current.x, current.y] == current_destination):
+            break
+
+        if ([current.x, current.y] != current_source):
+            grid_view.create_rectangle(current.x*cell_size, current.y*cell_size, current.x*cell_size+cell_size, current.y*cell_size+cell_size, fill="orange", outline="black")
+            grid_view.update_idletasks()
+
+
+        neighbors = [
+            Point(current.x-1, current.y, current.current_cost+1, getDistance([current.x-1, current.y], current_destination)), 
+            Point(current.x, current.y+1, current.current_cost+1, getDistance([current.x, current.y+1], current_destination)), 
+            Point(current.x+1, current.y, current.current_cost+1, getDistance([current.x+1, current.y], current_destination)), 
+            Point(current.x, current.y-1, current.current_cost+1, getDistance([current.x, current.y-1], current_destination))
+        ]
+
+        for neighbor in neighbors:
+            x, y = neighbor.x, neighbor.y
+            if x>=0 and y>=0 and x<grid_rows and y<grid_columns and grid[x][y]!=1 and not(visited[x][y]):
+                heapq.heappush(q, neighbor)
+                parent_to_children[neighbor.x*grid_columns+neighbor.y] = current.x*grid_columns+current.y
+                visited[x][y] = 1
+                time.sleep(0.05)
+        
+        path_point = current_destination[0]*grid_columns + current_destination[1]
+        while (parent_to_children.get(path_point)):
+            parent = parent_to_children[path_point]
+            if parent != current_source[0]*grid_columns + current_source[1]:
+                grid_view.create_rectangle((parent//grid_columns)*cell_size, (parent%grid_columns)*cell_size, (parent//grid_columns)*cell_size+cell_size, (parent%grid_columns)*cell_size+cell_size, fill="yellow", outline="black")
+                grid_view.update_idletasks()
+            path_point = parent
+
+
+def best_first_search(grid_view, current):
+    
+    if current == current_destination:
+        return True
+    
+    if current != current_source:
+        grid_view.create_rectangle(current[0]*cell_size, current[1]*cell_size, current[0]*cell_size+cell_size, current[1]*cell_size+cell_size, fill="orange", outline="black")
+        grid_view.update_idletasks()
+    
+    neighbors = [[current[0]-1,current[1]], [current[0],current[1]+1], [current[0]+1,current[1]], [current[0],current[1]-1]]
+    neighbors.sort(key = lambda x : getDistance(x, current_destination))
+    for neighbor in neighbors:
+        x, y = neighbor
+        if x>=0 and y>=0 and x<grid_rows and y<grid_columns and grid[x][y]!=1 and not(visited[x][y]):
+            visited[x][y] = 1
+            time.sleep(0.1)
+            result = dfs_search(grid_view, neighbor)
+            if result:
+                if current != current_source:
+                    grid_view.create_rectangle(current[0]*cell_size, current[1]*cell_size, current[0]*cell_size+cell_size, current[1]*cell_size+cell_size, fill="yellow", outline="black")
+                    grid_view.update_idletasks()
+                return True
+    
+    return False
+
+
+def start_visualization(algorithm_options, grid_view):
+
+    searching_algorithm = algorithm_options.get()
+
+    if (searching_algorithm == "DFS Search"):
+        dfs_search(grid_view, current_source.copy())
+    elif (searching_algorithm == "BFS Search"):
+        bfs_search(grid_view, current_source.copy())
+    elif (searching_algorithm == "A* Search"):
+        a_star_search(grid_view, current_source.copy())
+    else:
+        best_first_search(grid_view, current_source.copy())
+
+def reset(grid_view):
+
+    global grid, visited
+
+    for i in range(grid_rows):
+        for j in range(grid_columns):
+            visited[i][j] = 0
+
+    visited[current_source[0]][current_source[1]] = 1
+
+    create_grid(grid_view)
 
 
 def main():
@@ -105,11 +263,11 @@ def main():
     button_container = Frame(root, height=5)
     button_container.grid(row=3, column=0)
 
-    start_button = Button(button_container, text="Start", width=10, bg="green", fg="white", font=("courier", 10, "bold"))
+    start_button = Button(button_container, text="Start", width=10, bg="green", fg="white", font=("courier", 10, "bold"), command = lambda : start_visualization(algorithm_options, grid_view))
     start_button.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
 
-    stop_button = Button(button_container, text="Reset", width=10, bg="blue", fg="white", font=("courier", 10, "bold"))
-    stop_button.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
+    reset_button = Button(button_container, text="Reset", width=10, bg="blue", fg="white", font=("courier", 10, "bold"), command = lambda : reset(grid_view))
+    reset_button.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
 
     root.mainloop()
 

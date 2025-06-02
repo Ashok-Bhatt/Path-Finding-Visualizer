@@ -8,3 +8,6 @@ def getCellColor(grid, rowIndex, columnIndex):
         return "green"
     else:
         return "blue"
+    
+def getDistance(x, y):
+    return abs(x[0]-y[0]) + abs(x[1]-y[1])
